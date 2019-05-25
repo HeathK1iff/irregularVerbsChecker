@@ -7,8 +7,12 @@ import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Random;
 
-import utils.app.Parametr;
-import utils.app.Parametrs;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+
 import utils.irregularverbs.IIrregularVerb;
 import utils.irregularverbs.IrregularVerb;
 import utils.irregularverbs.imp.IImportIrregularVerbs;
@@ -56,17 +60,10 @@ public class IrregularVerbsChecker {
 	};
 	
 	
-	private WordInputMode mode;
+	private WordInputMode mode = WordInputMode.wimEnglishVerbs;
 	private int verbsCount = 10;
 	public static IrregularVerbsChecker checker;
 	public ArrayList<IIrregularVerb> irregularVerbs = new ArrayList<IIrregularVerb>();
-	private Parametrs params = null;
-
-	
-	public IrregularVerbsChecker(Parametrs params) {
-		this.mode = WordInputMode.wimRussianTranslation;
-		this.params = params;
-	}
 	
 	
 	/**
@@ -88,53 +85,48 @@ public class IrregularVerbsChecker {
 	
 	
 	/**
-	 * The method provide prepare of program parameters by inputed keys
-	 * @return The method returns true if all is success otherwise false
+	 * This method provide possibility to set VerbsCount variable
+	 * @param count
 	 */
-	public boolean prepare() {
-				
-		Parametr param = null;
-		if ((param = params.getParam("import")) != null) {
-			try {
-				this.importVerbs(new ImportIrregularVerbs(new FileInputStream(param.getParam(0))), true);
-			} catch (UnsupportedEncodingException e) {
-				System.out.println(String.format("Err: Encoding of import file (%s) is not UTF-8.", param.getParam(0)));
-				return false;
-			} catch (FileNotFoundException e) {
-				System.out.println(String.format("Err:Import file (%s) is not found.", param.getParam(0)));
-				return false;
-			}
-		}
-		
-		if ((param = params.getParam("mode")) != null) {
-			
-			if (param.getParam(0) == "ru") {
-				this.mode = WordInputMode.wimRussianTranslation;
-			} else {
-				this.mode = WordInputMode.wimEnglishVerbs;
-			}
-		
-		}
-		
-		if ((param = params.getParam("verbs")) != null) {		
-			verbsCount = Integer.parseInt(param.getParam(0));
-		}
-		
-		return true;
+	void setVerbsCount(int count) {
+		this.verbsCount = count;
 	}
 	
 	
+	/**
+	 * This method returns verbs count
+	 * @return
+	 */
+	
+	int getVerbsCount() {
+		return this.getVerbsCount();
+	}
+	
+	/**
+	 * This method returns word input mode for session
+	 * @return
+	 */
+	WordInputMode setWordInputMode() {
+		return this.mode;
+	}
+	
+
+	/**
+	 * this method povide possibility to set word input mode for session
+	 * @param mode
+	 */
+	void setWordInputMode(WordInputMode mode) {
+		this.mode = mode;
+	}
+	
+
 	/**
 	 * The method is main method for executing of program
 	 */
 	
 	public void execute() {
 		
-		if (!this.prepare())
-		  return;
-		
 		BufferedReader bufReader = new BufferedReader(new InputStreamReader(System.in));
-
 		try {
 			
 			do {
@@ -207,7 +199,42 @@ public class IrregularVerbsChecker {
 		
 	
 	public static void main(String[] args) throws IOException, ClassNotFoundException {
-		checker = new IrregularVerbsChecker(new Parametrs(args));
+		
+		CommandLineParser commandParser = new DefaultParser();
+		Options commandOptions = new Options();
+		commandOptions.addOption("i", "import", true, "This option give possibility to specify text file for import into program");
+		commandOptions.addOption("m", "mode", true, "This option specify user input mode.");
+		commandOptions.addOption("v", "verbs", true, "This option specify count of verbs for current session.");
+		
+		checker = new IrregularVerbsChecker();
+		
+		try {
+			CommandLine commandLine = commandParser.parse(commandOptions, args);
+			if (commandLine.hasOption("i")){
+				try {
+					checker.importVerbs(new ImportIrregularVerbs(new FileInputStream(commandLine.getOptionValue("i"))), true);
+				} catch (UnsupportedEncodingException e) {
+					System.out.println(String.format("Err: Encoding of import file (%s) is not UTF-8.", commandLine.getOptionValue("i")));
+				} catch (FileNotFoundException e) {
+					System.out.println(String.format("Err:Import file (%s) is not found.", commandLine.getOptionValue("i")));
+				}
+			} else if (commandLine.hasOption("m")) {
+				if (commandLine.getOptionValue("m") == "ru") {
+					checker.setWordInputMode(WordInputMode.wimRussianTranslation);
+				} else {
+					checker.setWordInputMode(WordInputMode.wimEnglishVerbs);
+				}
+			} else if (commandLine.hasOption("v")) {
+				checker.setVerbsCount(Integer.parseInt(commandLine.getOptionValue("v")));
+			}
+		
+		} catch (ParseException e) {
+			e.printStackTrace();
+		}
+		
+		
+		
+		
 		checker.execute();
 		checker = null;
 	}
