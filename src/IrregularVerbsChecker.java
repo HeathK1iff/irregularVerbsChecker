@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
-import java.util.Random;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -13,10 +12,10 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
-import utils.irregularverbs.IIrregularVerb;
-import utils.irregularverbs.IrregularVerb;
-import utils.irregularverbs.imp.IImportIrregularVerbs;
-import utils.irregularverbs.imp.ImportIrregularVerbs;
+import utils.irregularverbs.verbs.IIrregularVerb;
+import utils.irregularverbs.verbs.IrregularVerbRandom;
+import utils.irregularverbs.verbs.IrregularVerbs;
+import utils.irregularverbs.readers.IrregularVerbsTabStringReader;
 
 
 /**
@@ -58,31 +57,12 @@ public class IrregularVerbsChecker {
 	    	return caption;
 	    }
 	};
-	
-	
+
+	IrregularVerbs verbs = IrregularVerbs.getInstance();
 	private WordInputMode mode = WordInputMode.wimEnglishVerbs;
 	private int verbsCount = 10;
 	public static IrregularVerbsChecker checker;
 	public ArrayList<IIrregularVerb> irregularVerbs = new ArrayList<IIrregularVerb>();
-	
-	
-	/**
-	 * The method provide possibility to import list of verbs from external source.  
-	 * 
-	 * @param iterator The external source for import.
-	 * @param clearBefore If this parameter is true then collection will clear of self list before import, otherwise append items.
-	 * @return The method return count of imported items
-	 */
-	public int importVerbs(IImportIrregularVerbs source, boolean clearBefore){
-		if (clearBefore)
-			irregularVerbs.clear();
-
-		while (source.hasNext()) { 
-			irregularVerbs.add(new IrregularVerb(source.next()));
-		}
-		return irregularVerbs.size();		
-	}
-	
 	
 	/**
 	 * This method provide possibility to set VerbsCount variable
@@ -130,27 +110,10 @@ public class IrregularVerbsChecker {
 		try {
 			
 			do {
-				
-				ArrayList<Integer> randomVerbs = new ArrayList<Integer>(verbsCount);
-				Random rand = new Random();
-				
-				for (int i = 0; i < verbsCount; i++) {
-					int randomVar = -1;
-					
-					while (randomVar == -1) {
-						randomVar =	rand.nextInt(irregularVerbs.size());
-						if (randomVerbs.contains(randomVar))
-							randomVar = -1;				
-					}
-					
-					randomVerbs.add(randomVar);
-				}
-					
 				int indexVerb = 0;
-				do {					
-					
-					IIrregularVerb verb = irregularVerbs.get(randomVerbs.get(indexVerb));
-	
+				IrregularVerbRandom rmVerbs = verbs.getRandom(verbsCount);
+				while (rmVerbs.size() > 0){
+					IIrregularVerb verb = rmVerbs.get(indexVerb);
 					if (mode == WordInputMode.wimEnglishVerbs) {
 						System.out.println(String.format("Please write irregular verbs for russion word: %s", verb.getTranslatedWord()));					
 	
@@ -174,18 +137,17 @@ public class IrregularVerbsChecker {
 						}
 						
 						if (successWords != IrregularVerbType.values().length) {
-							
+							indexVerb++;
 							System.out.println(String.format("Incorrect: %s, %s, %s", verb.getPresentWord(), verb.getPastWord(), verb.getPastParticipantWord()));
-							indexVerb++;							
 						} else {
-							randomVerbs.remove(randomVerbs.get(indexVerb));
+							rmVerbs.remove(verb);
 						}
 						
-						if (indexVerb >= randomVerbs.size())
+						if (indexVerb >= rmVerbs.size())
 							indexVerb = 0;
 					}
 	
-				} while (randomVerbs.size() > 0);
+				};
 			
 				System.out.println("Please press any key for repeat exercise, otherwise write 'quit' for exit.");			
 				
@@ -197,44 +159,52 @@ public class IrregularVerbsChecker {
 			
 	}
 		
-	
+	private static final String OPTION_IN_FILE = "load-file";
+	private static final String OPTION_INPUT_MODE = "input-mode";
+	private static final String OPTION_VERB_COUNT = "verb-count";
+
+	private static final String OPTION_IN_FILE_SHORT = "lf";
+	private static final String OPTION_INPUT_MODE_SHORT = "im";
+	private static final String OPTION_VERB_COUNT_SHORT = "vc";
+
 	public static void main(String[] args) throws IOException, ClassNotFoundException {
 		
 		CommandLineParser commandParser = new DefaultParser();
 		Options commandOptions = new Options();
-		commandOptions.addOption("i", "import", true, "This option give possibility to specify text file for import into program");
-		commandOptions.addOption("m", "mode", true, "This option specify user input mode.");
-		commandOptions.addOption("v", "verbs", true, "This option specify count of verbs for current session.");
+		commandOptions.addRequiredOption(OPTION_IN_FILE_SHORT, OPTION_IN_FILE, true, "This option give possibility to specify text file for import into program");
+		commandOptions.addOption(OPTION_INPUT_MODE_SHORT, OPTION_INPUT_MODE, true, "This option specify user input mode.");
+		commandOptions.addOption(OPTION_VERB_COUNT_SHORT, OPTION_VERB_COUNT, true, "This option specify count of verbs for current session.");
 		
 		checker = new IrregularVerbsChecker();
-		
+
 		try {
 			CommandLine commandLine = commandParser.parse(commandOptions, args);
-			if (commandLine.hasOption("i")){
+			if (commandLine.hasOption(OPTION_IN_FILE)){
 				try {
-					checker.importVerbs(new ImportIrregularVerbs(new FileInputStream(commandLine.getOptionValue("i"))), true);
+					checker.verbs.load(new IrregularVerbsTabStringReader(new InputStreamReader(new FileInputStream(commandLine.getOptionValue(OPTION_IN_FILE)), "UTF-8")));
 				} catch (UnsupportedEncodingException e) {
-					System.out.println(String.format("Err: Encoding of import file (%s) is not UTF-8.", commandLine.getOptionValue("i")));
+					System.out.println(String.format("Err: Encoding of import file (%s) is not UTF-8.", commandLine.getOptionValue(OPTION_IN_FILE)));
 				} catch (FileNotFoundException e) {
-					System.out.println(String.format("Err:Import file (%s) is not found.", commandLine.getOptionValue("i")));
+					System.out.println(String.format("Err:Import file (%s) is not found.", commandLine.getOptionValue(OPTION_IN_FILE)));
 				}
-			} else if (commandLine.hasOption("m")) {
-				if (commandLine.getOptionValue("m") == "ru") {
+			}
+
+			if (commandLine.hasOption(OPTION_INPUT_MODE)) {
+				if (commandLine.getOptionValue(OPTION_INPUT_MODE) == "ru") {
 					checker.setWordInputMode(WordInputMode.wimRussianTranslation);
 				} else {
 					checker.setWordInputMode(WordInputMode.wimEnglishVerbs);
 				}
-			} else if (commandLine.hasOption("v")) {
-				checker.setVerbsCount(Integer.parseInt(commandLine.getOptionValue("v")));
+			}
+
+			if (commandLine.hasOption(OPTION_VERB_COUNT)) {
+				checker.setVerbsCount(Integer.parseInt(commandLine.getOptionValue(OPTION_VERB_COUNT)));
 			}
 		
 		} catch (ParseException e) {
 			e.printStackTrace();
 		}
-		
-		
-		
-		
+
 		checker.execute();
 		checker = null;
 	}

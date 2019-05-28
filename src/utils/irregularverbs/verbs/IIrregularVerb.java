@@ -1,4 +1,4 @@
-package utils.irregularverbs;
+package utils.irregularverbs.verbs;
 
 import java.util.List;
 
